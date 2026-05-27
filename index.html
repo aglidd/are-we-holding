@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Are We Holding?</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+    <script src="js/config.js"></script>
+    <script src="js/app.js?v=40" defer></script>
+</head>
+<body class="bg-gray-900 font-sans min-h-screen text-gray-100 selection:bg-blue-500">
+
+    <div id="toast-container" class="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
+    <div id="setup-takeover" class="fixed inset-0 bg-gray-950 z-[100] flex flex-col justify-center items-center p-6 hidden">
+        <div class="bg-gray-900 border border-gray-700 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center relative">
+            <button id="close-setup-btn" onclick="closeSetup()" class="absolute top-5 right-5 text-gray-500 hover:text-white font-bold text-xl cursor-pointer transition hidden">✕</button>
+            
+            <img src="assets/Chick-fil-A-header-logo.svg" alt="Brand Logo" class="w-24 h-24 mx-auto mb-6 drop-shadow-lg select-none">
+            
+            <h2 id="setup-title" class="text-3xl font-black text-white uppercase tracking-wide mb-2">Choose Location</h2>
+            <p class="text-gray-400 text-sm mb-8 font-bold tracking-wide">Enter your Store Number to connect.</p>
+            
+            <input type="tel" id="store-id-input" placeholder="e.g. 12345" maxlength="5" onclick="this.value=''" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onkeypress="if(event.key === 'Enter') saveStoreId()" class="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-xl px-5 py-4 text-center text-white font-black text-4xl tracking-[0.25em] outline-none transition placeholder-gray-600 mb-6" autocomplete="off">
+            
+            <button onclick="saveStoreId()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-lg rounded-xl uppercase tracking-widest transition cursor-pointer shadow-lg shadow-blue-900/20">Connect</button>
+        </div>
+    </div>
+
+    <nav id="main-nav" class="max-w-6xl mx-auto my-6 mx-4 p-4 bg-gray-800 border border-gray-700 rounded-2xl shadow-xl flex justify-between items-center">
+        
+        <div class="flex items-center space-x-2 md:space-x-4">
+            <h1 class="text-xl font-black tracking-wider text-blue-400 hidden sm:block">⏱️ ARE WE HOLDING?</h1>
+            <h1 class="text-xl font-black tracking-wider text-blue-400 sm:hidden">⏱️ AWH</h1>
+            
+            <div class="flex space-x-2">
+                <button id="nav-store-id" onclick="changeStore()" class="px-3 py-1.5 bg-gray-900 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg text-xs font-bold tracking-widest uppercase border border-gray-700 hover:border-gray-500 transition cursor-pointer">Store: -----</button>
+                <button onclick="openLogoutModal()" class="px-3 py-1.5 bg-red-950/40 border border-red-900/50 text-red-500 hover:bg-red-600 hover:text-white rounded-lg text-xs font-bold tracking-widest uppercase cursor-pointer transition">Logout</button>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button id="nav-btn-1" onclick="switchView(1)" class="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold tracking-wide cursor-pointer transition">Kitchen</button>
+            <button id="nav-btn-2" onclick="switchView(2)" class="px-4 py-2 bg-gray-700 text-gray-300 rounded-xl font-bold tracking-wide cursor-pointer transition">FOH</button>
+        </div>
+    </nav>
+
+    <div id="logout-takeover" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[150] flex flex-col justify-center items-center p-6 hidden">
+        <div class="bg-gray-900 border border-red-900/50 rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-red-900/20 text-center relative">
+            <button onclick="closeLogoutModal()" class="absolute top-5 right-5 text-gray-500 hover:text-white font-bold text-xl cursor-pointer transition">✕</button>
+            
+            <div class="text-red-500 text-6xl mb-4">🚨</div>
+            <h2 class="text-2xl font-black text-white uppercase tracking-wide mb-2">Logout</h2>
+            <p class="text-gray-400 text-sm mb-6 font-bold tracking-wide">This will log out EVERY tablet currently connected to it.</p>
+            
+            <p class="text-red-400 text-xs font-black uppercase tracking-widest mb-2">Type store number to confirm.</p>
+            <input type="tel" id="logout-confirm-input" placeholder="e.g. 12345" maxlength="5" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full bg-gray-800 border-2 border-gray-700 focus:border-red-500 rounded-xl px-5 py-4 text-center text-white font-black text-3xl tracking-[0.25em] outline-none transition placeholder-gray-600 mb-6" autocomplete="off">
+            
+            <div class="flex gap-4">
+                <button onclick="closeLogoutModal()" class="flex-1 py-4 bg-gray-800 hover:bg-gray-700 text-white font-black text-sm rounded-xl uppercase tracking-widest transition cursor-pointer">Cancel</button>
+                <button onclick="wipeStore()" class="flex-1 py-4 bg-red-600 hover:bg-red-500 text-white font-black text-sm rounded-xl uppercase tracking-widest transition cursor-pointer shadow-lg shadow-red-900/20">Wipe & Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 pb-12">
+        
+        <section id="view-1" class="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-xl">
+            <div class="mb-6 flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-black text-white">Kitchen</h2>
+                    <p class="text-gray-400 text-sm">Tap an item to select a timer.</p>
+                </div>
+            </div>
+            <div id="client-items-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                <p id="loading-matrix-msg" class="text-gray-400 italic col-span-full text-center py-8">Connecting to secure database matrix...</p>
+            </div>
+        </section>
+
+        <section id="view-2" class="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-xl view-hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-black text-white">FOH</h2>
+                <p class="text-gray-400 text-sm">Active timers. Tap to cancel.</p>
+            </div>
+            <div id="dashboard-items-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+            <div id="no-timers-msg" class="text-center py-24 text-gray-500 text-3xl md:text-5xl font-black tracking-widest uppercase hidden">
+                YAY! The Kitchen has chicken!
+            </div>
+        </section>
+
+        <div id="selection-takeover" class="fixed inset-0 w-full h-full overflow-y-auto bg-gray-950 z-50 select-none hidden"></div>
+
+        <div id="add-item-takeover" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col justify-center items-center p-6 hidden">
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+                <button onclick="closeAddItemMenu()" class="absolute top-5 right-5 text-gray-500 hover:text-white font-bold text-xl cursor-pointer transition">✕</button>
+                <h2 class="text-2xl font-black text-white uppercase tracking-wide mb-1">Add Custom Item</h2>
+                
+                <div class="space-y-4 mb-6">
+                    <input type="text" id="new-item-name-input" maxtext="22" maxlength="22" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '')" placeholder="Item Name (e.g. Bacon)" class="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-xl px-5 py-4 text-white font-bold text-lg outline-none transition placeholder-gray-600" autocomplete="off">
+                    
+                    <input type="text" inputmode="decimal" id="new-item-time-input" oninput="this.value = this.value.replace(/[^0-9.]/g, '')" onkeypress="if(event.key === 'Enter') submitNewItem()" placeholder="Minutes (e.g. 1.5 for 90s)" class="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-xl px-5 py-4 text-white font-bold text-lg outline-none transition placeholder-gray-600" autocomplete="off">
+                </div>
+
+                <button onclick="submitNewItem()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl uppercase tracking-widest transition cursor-pointer shadow-lg shadow-emerald-900/20">🚀 Create & Start Timer</button>
+            </div>
+        </div>
+
+    </main>
+
+    <template id="kitchen-card-template">
+        <div class="card-root relative bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden shadow-lg hover:border-gray-500 transition duration-200 cursor-pointer flex flex-col h-full min-h-[140px]">
+            <span class="active-badge absolute top-3 right-3 z-10 flex items-center space-x-2 px-3 py-1.5 bg-amber-500 text-gray-900 rounded-lg shadow animate-pulse hidden">
+                <span class="text-[10px] font-black tracking-widest uppercase">RUNNING</span>
+                <span class="boh-countdown-display font-mono text-sm font-bold">00:00</span>
+            </span>
+            
+            <div class="image-wrapper relative w-full aspect-video bg-gray-900 overflow-hidden">
+                <img class="item-image w-full h-full object-cover select-none hidden" src="" alt="">
+                <div class="image-fallback w-full h-full flex items-center justify-center text-gray-500 font-mono text-xs">NO IMAGE</div>
+            </div>
+            
+            <div class="text-wrapper p-4 text-center bg-gray-800 border-t border-gray-700/50 flex-grow flex flex-col justify-center items-center">
+                <h3 class="item-name font-bold text-lg text-white tracking-wide"></h3>
+                <span class="text-xs text-blue-400 font-bold mt-1 block uppercase tracking-wider">Tap to select time</span>
+            </div>
+        </div>
+    </template>
+
+    <template id="foh-card-template">
+        <div class="card-root relative bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-md hover:border-red-500 transition duration-200 cursor-pointer group flex flex-col justify-between overflow-hidden min-h-[140px]">
+            <img class="item-image absolute inset-0 w-full h-full object-cover opacity-20 hidden" src="" alt="">
+            <div class="relative z-10 flex justify-between items-start">
+                <h3 class="item-name font-bold text-xl text-white"></h3>
+                <span class="text-xs uppercase bg-red-600 text-white font-extrabold px-2 py-0.5 rounded tracking-wide group-hover:block hidden">Tap to End</span>
+                <span class="text-xs uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30 font-extrabold px-2 py-0.5 rounded tracking-wide group-hover:hidden block">Active</span>
+            </div>
+            <div class="relative z-10 mt-4">
+                <div class="countdown-display text-4xl font-black text-amber-400 font-mono">00:00</div>
+            </div>
+        </div>
+    </template>
+
+    <template id="takeover-template">
+        <div class="takeover-root w-full min-h-[100svh] flex flex-col justify-between relative z-10 bg-gray-950 p-6 md:p-12">
+            
+            <div class="w-full flex justify-between items-center border-b border-gray-800 pb-6 relative">
+                <div class="relative z-10">
+                    <div class="flex flex-wrap items-center gap-4 mt-1">
+                        <h2 class="item-name text-4xl md:text-5xl font-black tracking-tight text-white uppercase"></h2>
+                        <button class="delete-btn px-3 py-1.5 bg-red-950/40 border border-red-900/50 hover:bg-red-600 text-red-500 hover:text-white rounded-lg text-xs font-bold transition cursor-pointer uppercase tracking-wider hidden">🗑️ Drop</button>
+                    </div>
+                </div>
+
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 pointer-events-none">
+                    <span class="menu-countdown-display text-6xl md:text-8xl font-mono font-black text-amber-400 drop-shadow-2xl hidden">00:00</span>
+                </div>
+
+                <button class="close-btn relative z-10 px-5 py-2.5 text-sm font-black bg-gray-800 border border-gray-700 hover:bg-white hover:text-black text-white rounded-xl transition cursor-pointer uppercase tracking-wider">✕ Close</button>
+            </div>
+
+            <div class="preset-view-panel my-auto w-full max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 py-8">
+                <button class="timer-btn-1 p-8 md:p-12 bg-gray-900 border border-gray-800 hover:border-blue-500 hover:bg-blue-950 rounded-3xl transition duration-150 duration-150 cursor-pointer flex flex-col items-center justify-center group">
+                    <span class="preset-val-1 text-5xl md:text-7xl font-black text-white tracking-tight">--:--</span>
+                    <span class="preset-label-1 text-xs font-bold tracking-widest uppercase text-blue-400 group-hover:text-white mt-2">Loading...</span>
+                </button>
+                <button class="timer-btn-2 p-8 md:p-12 bg-gray-900 border border-gray-800 hover:border-blue-500 hover:bg-blue-950 rounded-3xl transition duration-150 duration-150 cursor-pointer flex flex-col items-center justify-center group">
+                    <span class="preset-val-2 text-5xl md:text-7xl font-black text-white tracking-tight">--:--</span>
+                    <span class="preset-label-2 text-xs font-bold tracking-widest uppercase text-blue-400 group-hover:text-white mt-2">Loading...</span>
+                </button>
+                <button class="timer-btn-3 p-8 md:p-12 bg-gray-900 border border-gray-800 hover:border-blue-500 hover:bg-blue-950 rounded-3xl transition duration-150 duration-150 cursor-pointer flex flex-col items-center justify-center group">
+                    <span class="preset-val-3 text-5xl md:text-7xl font-black text-white tracking-tight">--:--</span>
+                    <span class="preset-label-3 text-xs font-bold tracking-widest uppercase text-blue-400 group-hover:text-white mt-2">Loading...</span>
+                </button>
+                <button class="timer-btn-4 p-8 md:p-12 bg-gray-900 border border-gray-800 hover:border-blue-500 hover:bg-blue-950 rounded-3xl transition duration-150 duration-150 cursor-pointer flex flex-col items-center justify-center group">
+                    <span class="preset-val-4 text-5xl md:text-7xl font-black text-white tracking-tight">--:--</span>
+                    <span class="preset-label-4 text-xs font-bold tracking-widest uppercase text-blue-400 group-hover:text-white mt-2">Loading...</span>
+                </button>
+                
+                <button class="timer-btn-custom sm:col-span-2 p-6 bg-gray-900 border border-gray-800 hover:border-amber-500 hover:bg-amber-950/40 rounded-3xl transition duration-150 cursor-pointer flex flex-col items-center justify-center group">
+                    <span class="text-3xl font-black text-white tracking-tight">⏱️ Custom Time</span>
+                    <span class="text-xs font-bold tracking-widest uppercase text-amber-400 group-hover:text-white mt-1">Enter holding time.</span>
+                </button>
+            </div>
+
+            <div class="numpad-view-panel mercantile-numpad my-auto w-full max-w-sm mx-auto flex flex-col items-center py-6 hidden">
+                <div class="w-full bg-gray-900 border border-gray-800 rounded-2xl p-4 text-center mb-6 shadow-inner">
+                    <span class="text-xs font-bold tracking-wider text-amber-400/60 uppercase block mb-1">Holding Time (MM:SS)</span>
+                    <div class="numpad-display text-5xl font-black text-amber-400 font-mono tracking-wide">00:00</div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 w-full">
+                    <button onclick="pressNum(1)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">1</button>
+                    <button onclick="pressNum(2)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">2</button>
+                    <button onclick="pressNum(3)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">3</button>
+                    
+                    <button onclick="pressNum(4)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">4</button>
+                    <button onclick="pressNum(5)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">5</button>
+                    <button onclick="pressNum(6)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">6</button>
+                    
+                    <button onclick="pressNum(7)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">7</button>
+                    <button onclick="pressNum(8)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">8</button>
+                    <button onclick="pressNum(9)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">9</button>
+                    
+                    <button onclick="clearNum()" class="p-5 text-lg font-black bg-red-950/40 border border-red-900/30 hover:bg-red-600 text-red-400 hover:text-white rounded-2xl transition cursor-pointer shadow uppercase tracking-wide">Clear</button>
+                    <button onclick="pressNum(0)" class="p-5 text-2xl font-black bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition cursor-pointer shadow">0</button>
+                    <button onclick="submitCustomNum()" class="p-5 text-lg font-black bg-emerald-950/40 border border-emerald-900/30 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-2xl transition cursor-pointer shadow uppercase tracking-wide">Enter</button>
+                </div>
+
+                <button onclick="revealPresetPanel()" class="mt-6 text-sm text-gray-400 hover:text-white font-bold uppercase tracking-widest cursor-pointer transition">← Back to Options</button>
+            </div>
+
+            <div class="w-full border-t border-gray-800 pt-6 flex justify-center items-center">
+                <div class="active-timer-controls flex flex-wrap justify-center gap-4 w-full hidden">
+                    <button class="add-30s-btn px-6 py-4 text-sm font-black bg-blue-900 border border-blue-600 text-white hover:bg-blue-600 rounded-2xl transition tracking-widest cursor-pointer uppercase shadow-lg">
+                        + 30 Sec
+                    </button>
+                    <button class="add-1m-btn px-6 py-4 text-sm font-black bg-emerald-900 border border-emerald-600 text-white hover:bg-emerald-600 rounded-2xl transition tracking-widest cursor-pointer uppercase shadow-lg">
+                        + 1 Min
+                    </button>
+                    <button class="stop-btn px-8 py-4 text-sm font-black bg-red-900 border border-red-600 text-white hover:bg-red-600 rounded-2xl transition tracking-widest cursor-pointer uppercase shadow-lg">
+                        🚨 Stop Timer 🚨
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+</body>
+</html>
